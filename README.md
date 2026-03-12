@@ -43,21 +43,23 @@ global:
 routes:
   myroute:                      # served at GET /myroute
     command: mycmd --preset a   # binary + hard-coded args
-    allowed_args: "x y z"      # space-separated list of accepted query params
+    allowed_args: "w x y z"      # space-separated list of accepted query params
     arg_prefix: "--"            # flag prefix (default "--", use "-" for single-dash)
     arg_value_joiner: " "       # joins flag+value (default space, use "=" for --k=v)
-    positional_args: "x z"     # these args become positional values (no prefix)
+    positional_args: "w x"     # these args become positional values (no prefix)
+    flag_args: "y"             # these are boolean flags with NO value
     append_args: "--extra 'v'"  # always appended after API-built args
     api_keys: "key1 key2"      # extra keys only for this route
+  # can add more routes
 ```
 
 ### Argument construction
 
-Given `allowed_args: "a b c"`, `positional_args: "a"`, `arg_prefix: "--"`,
-`arg_value_joiner: "="`, and a request `GET /route?a=1&b=2&c=3`:
+Given `allowed_args: "a b c on"`, `positional_args: "a"`, `flag_args: "on"`, `arg_prefix: "--"`,
+`arg_value_joiner: "="`, and a request `GET /route?a=1&b=2&c=3&on`:
 
 ```
-mycmd --preset X  1  --b=2  --c=3  [append_args...]
+mycmd --preset X  1  --b=2  --c=3 --on  [append_args...]
                   ^positional  ^flags with joiner
 ```
 
@@ -66,8 +68,8 @@ mycmd --preset X  1  --b=2  --c=3  [append_args...]
 ## Authentication
 
 API keys are checked via (in order):
-1. `X-API-Key` request header
-2. `?api_key=` query parameter
+1. `X-API-Key: <key>` request header
+2. `Authorization: Bearer <key>` query parameter
 
 A request is authorised if its key appears in `global.global_api_keys` **or**
 the route's `api_keys` list. If neither list has any entries, the route is

@@ -29,11 +29,11 @@ routes:
     # Only these params are forwarded; all others are silently ignored.
     allowed_args: "msg pos1 flag count "
 
-    # Prefix used when building flag arguments.
+    # (Optional) Prefix used when building flag arguments.
     # Default: "--"   Use "-" for single-dash flags.
     arg_prefix: "--"
 
-    # Character used to join flag name and value.
+    # (Optional) Character used to join flag name and value.
     # Default: " " (space), producing:  --flag value
     # Use "=" to produce:               --flag=value
     arg_value_joiner: " "
@@ -51,7 +51,7 @@ routes:
     # Supports single and double quoted strings.
     append_args: "--extra 'appe nded'"
 
-    # API keys (space seperated) specific to this route (in addition to global_api_keys).
+    # (Optional) API keys (space seperated) specific to this route (in addition to global_api_keys).
     api_keys: "route-only-key another-route-key"
 
   echo2:
