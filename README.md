@@ -12,7 +12,7 @@ The granular control over the allowed flags and its types make the rest api robu
 
 ```bash
 # Requires Go 1.22+
-GOFLAGS="-mod=vendor" go build -o cmd2api .
+GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build --ldflags '-w -s -buildid=' -o cmd2api .
 ```
 
 ---
