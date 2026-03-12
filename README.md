@@ -1,8 +1,10 @@
 # cmd2api
 
 A lightweight HTTP API server that exposes command-line programs as REST endpoints.
-Query parameters are mapped to command-line arguments with full control over
-flag prefixes, value joiners, positional arguments, and API key authentication.
+Query parameters are mapped to command-line arguments with full control over allowed flags,
+flag prefixes, value joiners, positional arguments, boolean flags, and API key authentication.
+
+The granular control over the allowed flags and its types make the rest api robust and secure.
 
 ---
 
@@ -55,14 +57,15 @@ routes:
   
   # can add more routes
 ```
+Read the included config-example.yml for examples and more detail configuration options for routes. 
 
 ### Argument construction
 
-Given `allowed_args: "a b c on"`, `positional_args: "a"`, `flag_args: "on"`, `arg_prefix: "--"`,
-`arg_value_joiner: "="`, and a request `GET /route?a=1&b=2&c=3&on`:
+Given `allowed_args: "a b c y"`, `positional_args: "a"`, `flag_args: "y"`, `arg_prefix: "--"`,
+`arg_value_joiner: "="`, and a request `GET /route?a=1&b=2&c=3&y=4`:
 
 ```
-mycmd --preset X  1  --b=2  --c=3 --on  [append_args...]
+mycmd --preset X  1  --b=2  --c=3 --y  [append_args...]
                   ^positional  ^flags with joiner
 ```
 
