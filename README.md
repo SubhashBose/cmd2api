@@ -35,21 +35,24 @@ Command-line flags take precedence over values in `config.yml`.
 
 ```yaml
 global:
-  listen: ""                    # IP or interface; empty = all interfaces
-  port: 11555                   # default port
+  listen: ""                    # (optional) IP or interface; empty = all interfaces
+  port: 11555                   # (optional) default port
   global_api_keys:              # keys valid for every route
     - supersecretkey
 
 routes:
   myroute:                      # served at GET /myroute
     command: mycmd --preset a   # binary + hard-coded args
-    allowed_args: "w x y z"      # space-separated list of accepted query params
+    allowed_args: "w x y z"     # space-separated list of accepted query params
+    # All below are optional
     arg_prefix: "--"            # flag prefix (default "--", use "-" for single-dash)
     arg_value_joiner: " "       # joins flag+value (default space, use "=" for --k=v)
-    positional_args: "w x"     # these args become positional values (no prefix)
-    flag_args: "y"             # these are boolean flags with NO value
+    positional_args: "w x"      # these args become positional values (no prefix)
+    flag_args: "y"              # these are boolean flags with NO value
     append_args: "--extra 'v'"  # always appended after API-built args
-    api_keys: "key1 key2"      # extra keys only for this route
+    cmd_workdir: /home/user     # working directory for the command
+    api_keys: "key1 key2"       # extra keys only for this route
+  
   # can add more routes
 ```
 
@@ -117,5 +120,5 @@ GET /healthz  →  {"status":"ok"}
 curl -H "X-API-Key: supersecretkey" "http://localhost:8080/ls?path=/tmp"
 
 # Call /date with a custom format
-curl "http://localhost:8080/date?format=%25Y-%25m-%25d&api_key=supersecretkey"
+curl -H "Authorization: Bearer supersecretkey" "http://localhost:8080/date?format=%25Y-%25m-%25d"
 ```

@@ -37,6 +37,7 @@ type RouteConfig struct {
 	PositionalArgs []string `yaml:"positional_args"`
 	FlagArgs       []string `yaml:"flag_args"`
 	AppendArgs     string   `yaml:"append_args"`
+	CmdWorkdir     string   `yaml:"cmd_workdir"`
 	APIKeys        []string `yaml:"api_keys"`
 }
 
@@ -52,6 +53,7 @@ func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 		PositionalArgs string `yaml:"positional_args"`
 		FlagArgs       string `yaml:"flag_args"`
 		AppendArgs     string `yaml:"append_args"`
+		CmdWorkdir     string `yaml:"cmd_workdir"`
 		APIKeys        string `yaml:"api_keys"`
 	}
 	var raw rawRoute
@@ -65,6 +67,7 @@ func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 	r.PositionalArgs = splitFields(raw.PositionalArgs)
 	r.FlagArgs = splitFields(raw.FlagArgs)
 	r.AppendArgs = raw.AppendArgs
+	r.CmdWorkdir = raw.CmdWorkdir
 	r.APIKeys = splitFields(raw.APIKeys)
 	return nil
 }
@@ -343,6 +346,9 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+		if route.CmdWorkdir != "" {
+			cmd.Dir = route.CmdWorkdir
+		}
 		var stdoutBuf, stderrBuf strings.Builder
 		cmd.Stdout = &stdoutBuf
 		cmd.Stderr = &stderrBuf

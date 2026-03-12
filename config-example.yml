@@ -51,6 +51,9 @@ routes:
     # Supports single and double quoted strings.
     append_args: "--extra 'appe nded'"
 
+    # (Optional) The working directory in which the command is executed.
+    cmd_workdir: /home/user/myproject
+
     # (Optional) API keys (space seperated) specific to this route (in addition to global_api_keys).
     api_keys: "route-only-key another-route-key"
 
@@ -64,6 +67,7 @@ routes:
     command: ls -lh
     allowed_args: "path"
     positional_args: "path"     # ?path=/tmp  →  ls -lh /tmp
+    cmd_workdir: /home
     api_keys: "key1"
 
   # ── Route: /find ──────────────────────────────────────────────────────────
