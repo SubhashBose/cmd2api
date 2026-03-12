@@ -30,15 +30,16 @@ type GlobalConfig struct {
 }
 
 type RouteConfig struct {
-	Command        string   `yaml:"command"`
-	AllowedArgs    []string `yaml:"allowed_args"`
-	ArgPrefix      string   `yaml:"arg_prefix"`
-	ArgValueJoiner string   `yaml:"arg_value_joiner"`
-	PositionalArgs []string `yaml:"positional_args"`
-	FlagArgs       []string `yaml:"flag_args"`
-	AppendArgs     string   `yaml:"append_args"`
-	CmdWorkdir     string   `yaml:"cmd_workdir"`
-	APIKeys        []string `yaml:"api_keys"`
+	Command        string        `yaml:"command"`
+	AllowedArgs    []string      `yaml:"allowed_args"`
+	ArgPrefix      string        `yaml:"arg_prefix"`
+	ArgValueJoiner string        `yaml:"arg_value_joiner"`
+	PositionalArgs []string      `yaml:"positional_args"`
+	FlagArgs       []string      `yaml:"flag_args"`
+	AppendArgs     string        `yaml:"append_args"`
+	CmdWorkdir     string        `yaml:"cmd_workdir"`
+	ExecTimeout    time.Duration `yaml:"exec_timeout"`
+	APIKeys        []string      `yaml:"api_keys"`
 }
 
 // UnmarshalYAML handles space-separated string lists for AllowedArgs,
@@ -54,6 +55,7 @@ func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 		FlagArgs       string `yaml:"flag_args"`
 		AppendArgs     string `yaml:"append_args"`
 		CmdWorkdir     string `yaml:"cmd_workdir"`
+		ExecTimeout    string `yaml:"exec_timeout"`
 		APIKeys        string `yaml:"api_keys"`
 	}
 	var raw rawRoute
@@ -68,6 +70,13 @@ func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 	r.FlagArgs = splitFields(raw.FlagArgs)
 	r.AppendArgs = raw.AppendArgs
 	r.CmdWorkdir = raw.CmdWorkdir
+	if raw.ExecTimeout != "" {
+		d, err := time.ParseDuration(raw.ExecTimeout)
+		if err != nil {
+			return fmt.Errorf("invalid exec_timeout %q: %w", raw.ExecTimeout, err)
+		}
+		r.ExecTimeout = d
+	}
 	r.APIKeys = splitFields(raw.APIKeys)
 	return nil
 }
@@ -342,7 +351,11 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 		log.Printf("[%s] executing: %s %s", routeName, cmdName, strings.Join(cmdArgs, " "))
 
 		// ── Execute ───────────────────────────────────────
-		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		timeout := 60 * time.Second
+		if route.ExecTimeout > 0 {
+			timeout = route.ExecTimeout
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
@@ -357,6 +370,14 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 
 		exitCode := 0
 		if runErr != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				writeJSON(w, http.StatusGatewayTimeout, APIResponse{
+					Success: false,
+					Error:   fmt.Sprintf("command timed out after %s", timeout),
+					Stderr:  stderrBuf.String(),
+				})
+				return
+			}
 			if exitErr, ok := runErr.(*exec.ExitError); ok {
 				exitCode = exitErr.ExitCode()
 			} else {

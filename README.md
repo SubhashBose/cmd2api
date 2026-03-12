@@ -2,14 +2,20 @@
 
 A lightweight HTTP API server that exposes command-line programs as REST endpoints.
 Query parameters are mapped to command-line arguments with full control over allowed flags,
-flag prefixes, value joiners, positional arguments, boolean flags, and API key authentication.
+flag prefixes, value joiners, positional arguments, boolean flags, execution timeout, and API key authentication.
 
 The granular control over the allowed flags and its types make the rest api robust and secure.
 
 ---
 
+## Download
+
+In the [release section](https://github.com/SubhashBose/cmd2api/releases) binaries are available in 15 OS and architecture combinations.
+
+
 ## Build
 
+To compile the binary instead of downloading.
 ```bash
 # Requires Go 1.22+
 GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build --ldflags '-w -s -buildid=' -o cmd2api .
@@ -53,6 +59,7 @@ routes:
     flag_args: "y"              # these are boolean flags with NO value
     append_args: "--extra 'v'"  # always appended after API-built args
     cmd_workdir: /home/user     # working directory for the command
+    exec_timeout: 2s            # timeout duration for command execution
     api_keys: "key1 key2"       # extra keys only for this route
   
   # can add more routes
@@ -124,4 +131,19 @@ curl -H "X-API-Key: supersecretkey" "http://localhost:8080/ls?path=/tmp"
 
 # Call /date with a custom format
 curl -H "Authorization: Bearer supersecretkey" "http://localhost:8080/date?format=%25Y-%25m-%25d"
+```
+
+---
+
+## Security recommendations
+The API server is secure enough for most common malformed argument injection at command execution level. However, it ultimately depends on the command-line program how it process the arguments and exposes risk to host system.
+
+The best practice would be to run the API server and command-line program within a docker container, having an isolated filesystem from host, and also to make the filesystem read-only if that permits the use case. Here is a minimal example:
+
+```bash
+docker run -it --rm -v ./cmd2api_dir:/cmd2api:ro -p 11555:11555 alpine /cmd2api/cmd2api
+
+#OR as a always on background process
+docker run -itd --restart unless-stopped -v ./cmd2api_dir:/cmd2api:ro -p 11555:11555 alpine /cmd2api/cmd2api
+
 ```
