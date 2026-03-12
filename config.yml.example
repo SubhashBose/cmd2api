@@ -1,0 +1,86 @@
+# cmd2api configuration file
+# Place this as config.yml next to the binary, or pass --config /path/to/config.yml
+
+global:
+  # (Optional) IP address or interface name to listen on.
+  # Examples: "", "0.0.0.0", "127.0.0.1", "lo", "eth0", "docker0"
+  # Empty string = all interfaces (equivalent to 0.0.0.0)
+  # Command-line --listen flag takes precedence over this value.
+  listen: ""
+
+  # (Optional) Port to listen on. Default: 11555
+  # Command-line --port flag takes precedence.
+  port: 11555
+
+  # API keys that grant access to ALL routes.
+  # Requests must supply the key via the X-API-Key: <key> header or Authorization: Bearer <key> header.
+  # If no keys are defined here or per-route, authentication is disabled.
+  global_api_keys:
+    - my-global-secret-key
+
+routes:
+
+  # ── Route: /echo ──────────────────────────────────────────────────────────
+  echo:
+    # Base command with any hard-coded preset arguments.
+    command: echo --preset-arg "fixed value"
+
+    # Space-separated list of query parameter names that are accepted.
+    # Only these params are forwarded; all others are silently ignored.
+    allowed_args: "msg pos1 flag count "
+
+    # Prefix used when building flag arguments.
+    # Default: "--"   Use "-" for single-dash flags.
+    arg_prefix: "--"
+
+    # Character used to join flag name and value.
+    # Default: " " (space), producing:  --flag value
+    # Use "=" to produce:               --flag=value
+    arg_value_joiner: " "
+
+    # (Optional) Subset of allowed_args that become positional (no flag prefix).
+    # These values are placed in allowed_args order without the prefix/joiner.
+    positional_args: "pos1"
+
+    # (Optional) Subset of allowed_args that are boolean flags with NO value.
+    # When the query param is present (any value), only the flag itself is emitted.
+    # e.g.  ?verbose=1  →  --verbose   (the "1" is discarded)
+    flag_args: "flag"
+
+    # (Optional) Extra arguments appended AFTER the API-query-built args.
+    # Supports single and double quoted strings.
+    append_args: "--extra 'appe nded'"
+
+    # API keys (space seperated) specific to this route (in addition to global_api_keys).
+    api_keys: "route-only-key another-route-key"
+
+  echo2:
+    command: echo --preset-arg "fixed value"
+    allowed_args: "msg pos1 count "
+    api_keys: "route-only-key another-route-key"
+
+  # ── Route: /ls ────────────────────────────────────────────────────────────
+  ls:
+    command: ls -lh
+    allowed_args: "path"
+    positional_args: "path"     # ?path=/tmp  →  ls -lh /tmp
+    api_keys: "key1"
+
+  # ── Route: /find ──────────────────────────────────────────────────────────
+  find:
+    command: find
+    allowed_args: "dir name maxdepth type"
+    arg_prefix: "-"             # single-dash flags: -name, -maxdepth, -type
+    arg_value_joiner: " "
+    positional_args: "dir"      # ?dir=/var  placed as positional
+    api_keys: "key1"
+
+  # ── Route: /date ──────────────────────────────────────────────────────────
+  date:
+    command: date
+    allowed_args: "format"
+    arg_prefix: "+"             # date uses +FORMAT (no space, positional)
+    arg_value_joiner: ""
+    positional_args: "format"   # ?format=%Y-%m-%d  →  date +%Y-%m-%d
+    api_keys: ""
+    
