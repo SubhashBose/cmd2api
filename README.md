@@ -3,6 +3,7 @@
 A lightweight HTTP API server that exposes command-line programs as REST endpoints.
 Query parameters are mapped to command-line arguments with full control over allowed flags,
 flag prefixes, value joiners, positional arguments, boolean flags, execution timeout, and API key authentication.
+The server also supports gzip and brotil compression when supported by client.
 
 The granular control over the allowed flags and its types make the rest api robust and secure.
 
@@ -136,7 +137,7 @@ curl -H "Authorization: Bearer supersecretkey" "http://localhost:8080/date?forma
 ---
 
 ## Security recommendations
-The API server is secure enough for most common malformed argument injection at command execution level. However, it ultimately depends on the command-line program how it process the arguments and exposes risk to host system.
+The API server is secure enough against most common malformed argument injection at command execution level. However, it ultimately depends on the command-line program how it process the arguments and exposes risk to host system.
 
 The best practice would be to run the API server and command-line program within a docker container, having an isolated filesystem from host, and also to make the filesystem read-only if that permits the use case. Here is a minimal example:
 

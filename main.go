@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"flag"
@@ -16,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"gopkg.in/yaml.v3"
 )
 
@@ -228,8 +230,102 @@ func shellSplit(s string) []string {
 }
 
 // ─────────────────────────────────────────────
-// API response helpers
+// Compression middleware
 // ─────────────────────────────────────────────
+
+// compressedResponseWriter wraps http.ResponseWriter and writes through an
+// underlying compressor. WriteHeader is intercepted to inject the encoding
+// headers before the status is sent.
+type compressedResponseWriter struct {
+	http.ResponseWriter
+	writer      interface{ Write([]byte) (int, error) }
+	wroteHeader bool
+}
+
+func (c *compressedResponseWriter) Write(b []byte) (int, error) {
+	return c.writer.Write(b)
+}
+
+func (c *compressedResponseWriter) WriteHeader(status int) {
+	c.wroteHeader = true
+	c.ResponseWriter.WriteHeader(status)
+}
+
+// acceptedEncodings parses the Accept-Encoding header and returns the best
+// supported encoding to use ("br", "gzip", or "" for none).
+// Brotli and gzip are the only encodings we support. The highest q-value wins;
+// ties are broken by preferring brotli over gzip.
+func bestEncoding(r *http.Request) string {
+	type entry struct {
+		enc string
+		q   float64
+	}
+	var supported []entry
+
+	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		tokens := strings.SplitN(part, ";", 2)
+		enc := strings.ToLower(strings.TrimSpace(tokens[0]))
+		if enc != "br" && enc != "gzip" {
+			continue
+		}
+		q := 1.0
+		if len(tokens) == 2 {
+			param := strings.TrimSpace(tokens[1])
+			if strings.HasPrefix(param, "q=") {
+				fmt.Sscanf(param[2:], "%f", &q)
+			}
+		}
+		if q > 0 { // q=0 means "not acceptable"
+			supported = append(supported, entry{enc, q})
+		}
+	}
+
+	best := ""
+	bestQ := -1.0
+	for _, e := range supported {
+		// Prefer br over gzip on equal q
+		if e.q > bestQ || (e.q == bestQ && e.enc == "br") {
+			best = e.enc
+			bestQ = e.q
+		}
+	}
+	return best
+}
+
+// compressHandler wraps a handler and compresses responses when the client
+// supports brotli or gzip. Brotli is preferred when both are accepted.
+func compressHandler(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch bestEncoding(r) {
+		case "br":
+			w.Header().Set("Content-Encoding", "br")
+			w.Header().Del("Content-Length") // length changes after compression
+			bw := brotli.NewWriter(w)
+			defer bw.Close()
+			next(&compressedResponseWriter{ResponseWriter: w, writer: bw}, r)
+
+		case "gzip":
+			w.Header().Set("Content-Encoding", "gzip")
+			w.Header().Del("Content-Length")
+			gw, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+			if err != nil {
+				next(w, r)
+				return
+			}
+			defer gw.Close()
+			next(&compressedResponseWriter{ResponseWriter: w, writer: gw}, r)
+
+		default:
+			next(w, r)
+		}
+	}
+}
+
+
 
 type APIResponse struct {
 	Success  bool   `json:"success"`
@@ -449,9 +545,9 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Health check
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/healthz", compressHandler(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
+	}))
 
 	if len(cfg.Routes) == 0 {
 		log.Println("warning: no routes defined in config")
@@ -460,7 +556,7 @@ func main() {
 	for name, route := range cfg.Routes {
 		path := "/" + name
 		log.Printf("registering route  %-20s  cmd: %s", path, route.Command)
-		mux.HandleFunc(path, makeHandler(name, route, cfg.Global.GlobalAPIKeys))
+		mux.HandleFunc(path, compressHandler(makeHandler(name, route, cfg.Global.GlobalAPIKeys)))
 	}
 
 	// ── Start server ──────────────────────────────────────
