@@ -9,10 +9,15 @@ The granular control over the allowed flags and its types make the rest api robu
 
 ---
 
-## Download
+## Download and Update
 
 In the [release section](https://github.com/SubhashBose/cmd2api/releases) binaries are available in 15 OS and architecture combinations.
 
+To update the binary to the latest release, simply run
+
+```bash
+cmd2api -upgrade
+```
 
 ## Build
 
@@ -34,6 +39,7 @@ cmd2api [flags]
                     Examples: 192.168.1.10, lo, eth0, docker0
                     Empty = all interfaces (default)
   -port    int      Port to listen on (default 11555)
+  -upgrade          Self update to latest version 
 ```
 
 Command-line flags take precedence over values in `config.yml`.
