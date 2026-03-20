@@ -19,7 +19,10 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"gopkg.in/yaml.v3"
+	"github.com/SubhashBose/GoModule-selfupdater"
 )
+
+var version = "1.0"
 
 // ─────────────────────────────────────────────
 // Config structures
@@ -495,6 +498,38 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 	}
 }
 
+func runUpgrade(){
+	cfg := selfupdate.Config{
+		RepoURL:        "https://github.com/SubhashBose/cmd2api",
+		BinaryPrefix:   "cmd2api-",
+		OSSep:          "-",
+		CurrentVersion: version, // your build-time var
+	}
+
+	fmt.Printf("Current version: %s\nChecking for updates…", version)
+ 
+	res, err := selfupdate.Update(cfg)
+
+	if res.LatestVersion != "" {
+		fmt.Printf(" Latest version: %s\n", res.LatestVersion)
+	} else {
+		fmt.Printf("\n")
+	}
+	
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Update failed:", err)
+		os.Exit(1)
+	}
+ 
+	if !res.Updated {
+		fmt.Printf("Already up to date (latest: %s)\n", res.LatestVersion)
+		return
+	}
+ 
+	fmt.Printf("Successfully updated to v%s (asset: %s)\n",
+		res.LatestVersion, res.AssetName)
+}
+
 // ─────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────
@@ -507,6 +542,7 @@ func main() {
 	configFile := flag.String("config", defaultConfig, "path to config.yml")
 	listenFlag := flag.String("listen", "", "IP address or interface name to listen on (empty = all)")
 	portFlag := flag.Int("port", 0, "port to listen on (default 11555)")
+	upgrade := flag.Bool("upgrade", false, "update cmd2api to latest version")
 	flag.Parse()
 
 	// ── Load config ───────────────────────────────────────
@@ -537,6 +573,11 @@ func main() {
 	}
 	if *portFlag != 0 {
 		port = *portFlag
+	}
+
+	if upgrade != nil && *upgrade {
+		runUpgrade()
+		os.Exit(0)
 	}
 
 	bindAddr := fmt.Sprintf("%s:%d", resolvedIP, port)

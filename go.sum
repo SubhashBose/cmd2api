@@ -1,3 +1,5 @@
+github.com/SubhashBose/GoModule-selfupdater v1.0.0 h1:PStFrv61Ai62OQQVX/aOU82SSMOKLMWNksuXvDh3U9I=
+github.com/SubhashBose/GoModule-selfupdater v1.0.0/go.mod h1:EhfXkeG/7bGVJYT5mk4bUYnmIMqR5xviNCn0qd6y83s=
 github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=
 github.com/andybalholm/brotli v1.2.0/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
