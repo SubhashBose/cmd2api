@@ -1,9 +1,8 @@
 # cmd2api
 
-A lightweight HTTP API server that exposes command-line programs as REST endpoints.
-Query parameters are mapped to command-line arguments with full control over allowed flags,
-flag prefixes, value joiners, positional arguments, boolean flags, execution timeout, and API key authentication.
-The server also supports gzip and brotil compression when supported by client.
+A lightweight HTTP API server that exposes command-line programs as REST endpoints. Query parameters are translated into command-line arguments, with fine-grained control over allowed flags, flag prefixes, argument–value separators, positional arguments, boolean flags, and execution timeouts.
+
+The server supports API key–based authentication and configurable CORS headers. It also provides gzip and Brotli compression when supported by the client.
 
 The granular control over the allowed flags and its types make the rest api robust and secure.
 
@@ -68,6 +67,7 @@ routes:
     cmd_workdir: /home/user     # working directory for the command
     exec_timeout: 2s            # timeout duration for command execution
     api_keys: "key1 key2"       # extra keys only for this route
+    cors_origins: "*"           # Access-Control-Allow-Origin for CORS headers
   
   # can add more routes
 ```

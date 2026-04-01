@@ -61,6 +61,9 @@ routes:
     # (Optional) API keys (space seperated) specific to this route (in addition to global_api_keys).
     api_keys: "route-only-key another-route-key"
 
+    # (Optional) CORS header to allow origns. Default is none. Can be '*' or list of Url origins.
+    cors_origins: "https://app.example.com https://admin.example.com"
+
   echo2:
     command: echo --preset-arg "fixed value"
     allowed_args: "msg pos1 count "

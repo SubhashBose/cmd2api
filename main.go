@@ -19,7 +19,8 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"gopkg.in/yaml.v3"
-	"github.com/SubhashBose/GoModule-selfupdater"
+
+	selfupdate "github.com/SubhashBose/GoPkg-selfupdater"
 )
 
 var version = "1.0"
@@ -44,13 +45,13 @@ type RouteConfig struct {
 	AppendArgs     string        `yaml:"append_args"`
 	CmdWorkdir     string        `yaml:"cmd_workdir"`
 	ExecTimeout    time.Duration `yaml:"exec_timeout"`
+	CORSOrigins    []string      `yaml:"cors_origins"`
 	APIKeys        []string      `yaml:"api_keys"`
 }
 
 // UnmarshalYAML handles space-separated string lists for AllowedArgs,
 // PositionalArgs, and APIKeys fields.
 func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
-	// Use a raw alias type to avoid recursion
 	type rawRoute struct {
 		Command        string `yaml:"command"`
 		AllowedArgs    string `yaml:"allowed_args"`
@@ -61,6 +62,7 @@ func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 		AppendArgs     string `yaml:"append_args"`
 		CmdWorkdir     string `yaml:"cmd_workdir"`
 		ExecTimeout    string `yaml:"exec_timeout"`
+		CORSOrigins    string `yaml:"cors_origins"`
 		APIKeys        string `yaml:"api_keys"`
 	}
 	var raw rawRoute
@@ -82,6 +84,7 @@ func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 		}
 		r.ExecTimeout = d
 	}
+	r.CORSOrigins = splitFields(raw.CORSOrigins)
 	r.APIKeys = splitFields(raw.APIKeys)
 	return nil
 }
@@ -109,11 +112,11 @@ func resolveListenAddr(addr string) (string, error) {
 	if addr == "" {
 		return "", nil
 	}
-	// Check if it's already an IP address
+// Check if it's already an IP address
 	if ip := net.ParseIP(addr); ip != nil {
 		return addr, nil
 	}
-	// Treat as interface name
+// Treat as interface name
 	iface, err := net.InterfaceByName(addr)
 	if err != nil {
 		return "", fmt.Errorf("interface %q not found: %w", addr, err)
@@ -142,7 +145,7 @@ func resolveListenAddr(addr string) (string, error) {
 
 // buildArgs constructs the final argument slice for the command.
 func buildArgs(route RouteConfig, queryParams map[string]string) ([]string, error) {
-	// Determine prefix and joiner
+// Determine prefix and joiner
 	prefix := "--"
 	if route.ArgPrefix != "" {
 		prefix = route.ArgPrefix
@@ -179,7 +182,7 @@ func buildArgs(route RouteConfig, queryParams map[string]string) ([]string, erro
 		}
 		switch {
 		case flagArgSet[argName]:
-			// Flag-only: emit just the prefix+name, ignore any query value
+            // Flag-only: emit just the prefix+name, ignore any query value
 			args = append(args, prefix+argName)
 		case positionalSet[argName]:
 			args = append(args, queryParams[argName])
@@ -290,7 +293,7 @@ func bestEncoding(r *http.Request) string {
 	best := ""
 	bestQ := -1.0
 	for _, e := range supported {
-		// Prefer br over gzip on equal q
+// Prefer br over gzip on equal q
 		if e.q > bestQ || (e.q == bestQ && e.enc == "br") {
 			best = e.enc
 			bestQ = e.q
@@ -328,7 +331,68 @@ func compressHandler(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// ─────────────────────────────────────────────
+// CORS middleware
+// ─────────────────────────────────────────────
 
+// corsHandler adds CORS headers based on the route's cors_origins list.
+// If the list is empty, no CORS headers are added.
+// If it contains "*", all origins are allowed unconditionally.
+// Otherwise the request Origin is matched against the list; if matched,
+// that origin is echoed back (required for credentialed requests).
+// Preflight OPTIONS requests are answered immediately with 204 No Content,
+// bypassing auth and command execution entirely.
+func corsHandler(origins []string, next http.HandlerFunc) http.HandlerFunc {
+	if len(origins) == 0 {
+		return next
+	}
+
+	wildcard := false
+	originSet := make(map[string]bool, len(origins))
+	for _, o := range origins {
+		if o == "*" {
+			wildcard = true
+		} else {
+			originSet[strings.ToLower(o)] = true
+		}
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestOrigin := r.Header.Get("Origin")
+
+		var allowOrigin string
+		if requestOrigin != "" {
+			if wildcard {
+				allowOrigin = "*"
+			} else if originSet[strings.ToLower(requestOrigin)] {
+				allowOrigin = requestOrigin // echo back matched origin
+			}
+		}
+
+		if allowOrigin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization")
+			// Vary: Origin required when reflecting a specific origin so caches
+			// don't serve the wrong origin's response
+			if allowOrigin != "*" {
+				w.Header().Add("Vary", "Origin")
+			}
+		}
+
+		// Answer preflight immediately
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+// ─────────────────────────────────────────────
+// API response helpers
+// ─────────────────────────────────────────────
 
 type APIResponse struct {
 	Success  bool   `json:"success"`
@@ -349,7 +413,7 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 // ─────────────────────────────────────────────
 
 func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.HandlerFunc {
-	// Build combined key set
+// Build combined key set
 	keySet := make(map[string]bool)
 	for _, k := range globalKeys {
 		if k != "" {
@@ -498,16 +562,20 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 	}
 }
 
-func runUpgrade(){
+// ─────────────────────────────────────────────
+// Self-update
+// ─────────────────────────────────────────────
+
+func runUpgrade() {
 	cfg := selfupdate.Config{
 		RepoURL:        "https://github.com/SubhashBose/cmd2api",
 		BinaryPrefix:   "cmd2api-",
 		OSSep:          "-",
-		CurrentVersion: version, // your build-time var
+		CurrentVersion: version, // build-time var
 	}
+	
+	fmt.Printf("Current version: %s\nChecking for updates...", version)
 
-	fmt.Printf("Current version: %s\nChecking for updates…", version)
- 
 	res, err := selfupdate.Update(cfg)
 
 	if res.LatestVersion != "" {
@@ -515,19 +583,17 @@ func runUpgrade(){
 	} else {
 		fmt.Printf("\n")
 	}
-	
+
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Update failed:", err)
 		os.Exit(1)
 	}
- 
+
 	if !res.Updated {
 		fmt.Printf("Already up to date (latest: %s)\n", res.LatestVersion)
 		return
 	}
- 
-	fmt.Printf("Successfully updated to v%s (asset: %s)\n",
-		res.LatestVersion, res.AssetName)
+	fmt.Printf("Successfully updated to v%s (asset: %s)\n", res.LatestVersion, res.AssetName)
 }
 
 // ─────────────────────────────────────────────
@@ -545,7 +611,11 @@ func main() {
 	upgrade := flag.Bool("upgrade", false, "update cmd2api to latest version")
 	flag.Parse()
 
-	// ── Load config ───────────────────────────────────────
+	if upgrade != nil && *upgrade {
+		runUpgrade()
+		os.Exit(0)
+	}
+
 	data, err := os.ReadFile(*configFile)
 	if err != nil {
 		log.Fatalf("cannot read config file %q: %v", *configFile, err)
@@ -575,11 +645,6 @@ func main() {
 		port = *portFlag
 	}
 
-	if upgrade != nil && *upgrade {
-		runUpgrade()
-		os.Exit(0)
-	}
-
 	bindAddr := fmt.Sprintf("%s:%d", resolvedIP, port)
 
 	// ── Register routes ───────────────────────────────────
@@ -597,7 +662,7 @@ func main() {
 	for name, route := range cfg.Routes {
 		path := "/" + name
 		log.Printf("registering route  %-20s  cmd: %s", path, route.Command)
-		mux.HandleFunc(path, compressHandler(makeHandler(name, route, cfg.Global.GlobalAPIKeys)))
+		mux.HandleFunc(path, compressHandler(corsHandler(route.CORSOrigins, makeHandler(name, route, cfg.Global.GlobalAPIKeys))))
 	}
 
 	// ── Start server ──────────────────────────────────────

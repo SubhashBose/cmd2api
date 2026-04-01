@@ -1,7 +1,6 @@
-github.com/SubhashBose/GoModule-selfupdater v1.0.0 h1:PStFrv61Ai62OQQVX/aOU82SSMOKLMWNksuXvDh3U9I=
-github.com/SubhashBose/GoModule-selfupdater v1.0.0/go.mod h1:EhfXkeG/7bGVJYT5mk4bUYnmIMqR5xviNCn0qd6y83s=
-github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=
-github.com/andybalholm/brotli v1.2.0/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
-gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+github.com/SubhashBose/GoPkg-selfupdater v1.0.0 h1:+m4trDqAMOIdWVQpdh2ZQ1duoZxbYqT0RpnhB4IdTck=
+github.com/SubhashBose/GoPkg-selfupdater v1.0.0/go.mod h1:rY5v5SBg4BX6w8Nniy6JCtD621xXKKwuL3ZBkR3TIYM=
+github.com/andybalholm/brotli v1.2.1 h1:R+f5xP285VArJDRgowrfb9DqL18yVK0gKAW/F+eTWro=
+github.com/andybalholm/brotli v1.2.1/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
