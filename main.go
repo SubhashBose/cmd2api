@@ -50,7 +50,7 @@ type RouteConfig struct {
 }
 
 // UnmarshalYAML handles space-separated string lists for AllowedArgs,
-// PositionalArgs, and APIKeys fields.
+// PositionalArgs, FlagArgs, CORSOrigins, and APIKeys fields.
 func (r *RouteConfig) UnmarshalYAML(value *yaml.Node) error {
 	type rawRoute struct {
 		Command        string `yaml:"command"`
@@ -112,11 +112,11 @@ func resolveListenAddr(addr string) (string, error) {
 	if addr == "" {
 		return "", nil
 	}
-// Check if it's already an IP address
+	// Check if it's already an IP address
 	if ip := net.ParseIP(addr); ip != nil {
 		return addr, nil
 	}
-// Treat as interface name
+	// Treat as interface name
 	iface, err := net.InterfaceByName(addr)
 	if err != nil {
 		return "", fmt.Errorf("interface %q not found: %w", addr, err)
@@ -182,7 +182,7 @@ func buildArgs(route RouteConfig, queryParams map[string]string) ([]string, erro
 		}
 		switch {
 		case flagArgSet[argName]:
-            // Flag-only: emit just the prefix+name, ignore any query value
+			// Flag-only: emit just the prefix+name, ignore any query value
 			args = append(args, prefix+argName)
 		case positionalSet[argName]:
 			args = append(args, queryParams[argName])
@@ -309,7 +309,7 @@ func compressHandler(next http.HandlerFunc) http.HandlerFunc {
 		switch bestEncoding(r) {
 		case "br":
 			w.Header().Set("Content-Encoding", "br")
-			w.Header().Del("Content-Length") // length changes after compression
+			w.Header().Del("Content-Length")
 			bw := brotli.NewWriter(w)
 			defer bw.Close()
 			next(&compressedResponseWriter{ResponseWriter: w, writer: bw}, r)
@@ -391,6 +391,23 @@ func corsHandler(origins []string, next http.HandlerFunc) http.HandlerFunc {
 }
 
 // ─────────────────────────────────────────────
+// Cloudflare-safe status codes
+// ─────────────────────────────────────────────
+
+// cfSafeStatus returns the HTTP status code to use for the response.
+// Cloudflare intercepts 5xx responses and replaces the body with its own
+// error page, so the JSON error payload never reaches the client.
+// When the request came through Cloudflare (detected by the CF-Ray header),
+// any 5xx status is downgraded to 200 so the JSON body is passed through
+// intact. The "success": false field in the body still signals the error.
+func cfSafeStatus(r *http.Request, status int) int {
+	if status >= 500 && r.Header.Get("CF-Ray") != "" {
+		return http.StatusOK
+	}
+	return status
+}
+
+// ─────────────────────────────────────────────
 // API response helpers
 // ─────────────────────────────────────────────
 
@@ -446,7 +463,7 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 			}
 		}
 
-		// ── Method guard ─────────────────────────────────
+		// ── Method guard ──────────────────────────────────
 		if r.Method != http.MethodGet && r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
 				Success: false,
@@ -502,7 +519,7 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 		// ── Parse base command + preset args ──────────────
 		baseTokens := shellSplit(route.Command)
 		if len(baseTokens) == 0 {
-			writeJSON(w, http.StatusInternalServerError, APIResponse{
+			writeJSON(w, cfSafeStatus(r, http.StatusInternalServerError), APIResponse{
 				Success: false,
 				Error:   "route has empty command",
 			})
@@ -534,7 +551,7 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 		exitCode := 0
 		if runErr != nil {
 			if ctx.Err() == context.DeadlineExceeded {
-				writeJSON(w, http.StatusGatewayTimeout, APIResponse{
+				writeJSON(w, cfSafeStatus(r, http.StatusGatewayTimeout), APIResponse{
 					Success: false,
 					Error:   fmt.Sprintf("command timed out after %s", timeout),
 					Stderr:  stderrBuf.String(),
@@ -544,7 +561,7 @@ func makeHandler(routeName string, route RouteConfig, globalKeys []string) http.
 			if exitErr, ok := runErr.(*exec.ExitError); ok {
 				exitCode = exitErr.ExitCode()
 			} else {
-				writeJSON(w, http.StatusInternalServerError, APIResponse{
+				writeJSON(w, cfSafeStatus(r, http.StatusInternalServerError), APIResponse{
 					Success: false,
 					Error:   fmt.Sprintf("execution error: %v", runErr),
 					Stderr:  stderrBuf.String(),
@@ -573,7 +590,7 @@ func runUpgrade() {
 		OSSep:          "-",
 		CurrentVersion: version, // build-time var
 	}
-	
+
 	fmt.Printf("Current version: %s\nChecking for updates...", version)
 
 	res, err := selfupdate.Update(cfg)

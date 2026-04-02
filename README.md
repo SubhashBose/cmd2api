@@ -75,8 +75,8 @@ Read the included config-example.yml for examples and more detail configuration 
 
 ### Argument construction
 
-Given `allowed_args: "a b c y"`, `positional_args: "a"`, `flag_args: "y"`, `arg_prefix: "--"`,
-`arg_value_joiner: "="`, and a request `GET /route?a=1&b=2&c=3&y=4`:
+Given `command: "mycmd --preset X"` `allowed_args: "a b c y"`, `positional_args: "a"`, `flag_args: "y"`, `arg_prefix: "--"`,
+`arg_value_joiner: "="`, and a request `GET /route?a=1&b=2&c=3&y=4`, the command-line argument constructed as:
 
 ```
 mycmd --preset X  1  --b=2  --c=3 --y  [append_args...]
@@ -139,6 +139,8 @@ curl -H "X-API-Key: supersecretkey" "http://localhost:8080/ls?path=/tmp"
 # Call /date with a custom format
 curl -H "Authorization: Bearer supersecretkey" "http://localhost:8080/date?format=%25Y-%25m-%25d"
 ```
+In the examples only GET requests are shows, however, the API can also accept POST and JSON formatted requests, which
+are preferred if the values contain sensitive information.
 
 ---
 
